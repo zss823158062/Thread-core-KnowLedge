@@ -15,6 +15,7 @@ public class TransferMoney implements Runnable {
     int flag = 1;
     static Account a = new Account(500);
     static Account b = new Account(500);
+    static final Object lock = new Object();
 
     public static void main(String[] args) throws InterruptedException {
         TransferMoney r1 = new TransferMoney();
@@ -27,42 +28,69 @@ public class TransferMoney implements Runnable {
         t2.start();
         t1.join();
         t2.join();
-        System.out.println("a的余额"+ a.balance);
-        System.out.println("b的余额"+ b.balance);
+        System.out.println("a的余额" + a.balance);
+        System.out.println("b的余额" + b.balance);
     }
 
     @Override
     public void run() {
-        if (flag == 1){
+        if (flag == 1) {
             // a转b 200
-            transferMoney(a,b,200);
+            transferMoney(a, b, 200);
         }
-        if (flag == 0){
+        if (flag == 0) {
             // b转a 200
-            transferMoney(b,a,200);
+            transferMoney(b, a, 200);
         }
     }
-    static class Account{
+
+    static class Account {
         public Account(int balance) {
             this.balance = balance;
         }
+
         int balance;
     }
 
-    public static void transferMoney(Account from, Account to,int amount){
-        synchronized (from){
+    public static void transferMoney(Account from, Account to, int amount) {
+        class helper {
+            public void transfer() {
+                if (from.balance - amount < 0) {
+                    System.out.println("余额不足，转账失败");
+                }
+                from.balance -= amount;
+                to.balance += amount;
+                System.out.println("成功转账" + amount + "元");
+            }
+        }
+        int fromHash = System.identityHashCode(from);
+        int toHash = System.identityHashCode(to);
+        if (fromHash < toHash) {
+            synchronized (from) {
+                synchronized (to) {
+                    new helper().transfer();
+                }
+            }
+        }else if (fromHash > toHash){
+            synchronized (to){
+                synchronized (from){
+                    new helper().transfer();
+                }
+            }
+        }
+        synchronized (from) {
             try {
                 Thread.sleep(500);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            synchronized (to){
-                if (from.balance - amount < 0){
+            synchronized (to) {
+                if (from.balance - amount < 0) {
                     System.out.println("余额不足，转账失败");
                 }
                 from.balance -= amount;
                 to.balance += amount;
-                System.out.println("成功转账"+amount+"元");
+                System.out.println("成功转账" + amount + "元");
             }
         }
     }
